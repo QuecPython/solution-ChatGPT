@@ -3,7 +3,6 @@ import request
 from machine import Pin
 from usr.libs.threading import Condition, Thread
 from usr.libs.logging import getLogger
-from usr.settings import *
 
 
 logger = getLogger(__name__)

@@ -9,7 +9,7 @@ import uwebsocket as ws
 from usr.libs.datetime import DateTime
 from usr.libs.threading import Thread, Lock
 from usr.libs.logging import getLogger
-from usr.settings import *
+from usr.configure import settings
 
 
 logger = getLogger(__name__)
@@ -30,12 +30,12 @@ def _get_sign(pk, dk, time_string, ak):
 def get_openai_realtime_token():
     """获取 OpenAI Realtime Token"""
     timestamp = utime.mktime(utime.localtime()) * 1000
-    sign = _get_sign(PRODUCT_KEY, DEVICE_KEY, str(timestamp), ACCESS_SECRET)
-    logger.debug("request post url: {}".format(AIGC_API_URL))
+    sign = _get_sign(settings.PRODUCT_KEY, settings.DEVICE_KEY, str(timestamp), settings.ACCESS_SECRET)
+    logger.debug("request post url: {}".format(settings.AIGC_API_URL))
     resp = request.post(
-        AIGC_API_URL,
+        settings.AIGC_API_URL,
         headers={
-            "Authorization": AUTHORIZATION_VALUE,
+            "Authorization": settings.AUTHORIZATION_VALUE,
             "Content-Type": "application/json"
         },
         data = ujson.dumps(
@@ -43,8 +43,8 @@ def get_openai_realtime_token():
                 "inputAudioFormat": "g711_alaw",
                 "outputAudioFormat": "g711_alaw",
                 "temperature": 0.8,
-                "productKey": PRODUCT_KEY,
-                "deviceKey": DEVICE_KEY,
+                "productKey": settings.PRODUCT_KEY,
+                "deviceKey": settings.DEVICE_KEY,
                 "timestamp": timestamp,
                 "sign": sign,
                 "inputAudioNoiseReduction": "near_field",

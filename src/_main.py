@@ -6,11 +6,11 @@ import G711
 import audio
 import ql_fs
 from machine import ExtInt, Pin
-from usr.libs.threading import Thread, BoundedSemaphore, EventSet, Event, Lock
+from usr.libs.threading import Thread, BoundedSemaphore, EventSet, Lock
 from usr.libs.logging import getLogger
 from usr.utils import ChargeManager, Led, Player
 from usr.protocol import WebSocketClient
-from usr.settings import PRODUCT_KEY, PRODUCT_SECRET
+from usr.configure import settings
 from usr.libs.logging import getLogger
 from usr.libs.qth import qth_init, qth_config, qth_bus
 
@@ -54,7 +54,6 @@ class Application(object):
         self.rec = audio.Record(0)
         self.rec.ovkws_set_callback(self.on_keyword_spotting)
         self.chat_thread = None
-        self.update_realtime_token_thread = Thread(target=self.__update_realtime_token_thread_handler)
         
         # Wakeup 按键
         self.wakeup_key = ExtInt(ExtInt.GPIO41, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.on_wakeup_key_click, 50)
@@ -69,11 +68,6 @@ class Application(object):
 
         self.__kws_thread = None
         self.__kws_thread_stop_flag = False
-    
-    def __update_realtime_token_thread_handler(self):
-        while True:
-            self.protocol.get_realtime_api_info()
-            utime.sleep(150)
 
     def __set_audio_volume(self, args):
         v = self.aud.getVolume() + (1 if args[0] == 47 else -1)
@@ -120,9 +114,9 @@ class Application(object):
     def start_kws(self):
         logger.debug("start kws...")
         self.reset_pcm_object(samplerate=16000)
-        value = ql_fs.read_json("/usr/config.json")
-        self.rec.ovkws_start(value["WAKEUP_KEYWORD"], 0.8)
-        logger.debug("唤醒词：{}".format(value["WAKEUP_KEYWORD"]))
+        value = settings.get("WAKEUP_KEYWORD")
+        self.rec.ovkws_start(value, 0.8)
+        logger.debug("唤醒词：{}".format(value))
         self.__kws_thread_stop_flag = False
         self.__kws_thread = Thread(self.__kws_thread_handler)
         self.__kws_thread.start(stack_size=16)
@@ -151,9 +145,9 @@ class Application(object):
         self.wakeup_key.enable()  # 使能唤醒按键
         self.vol_plus.enable()
         self.vol_sub.enable()
+        self.qth_init(settings.PRODUCT_KEY, settings.PRODUCT_SECRET)  # 云控制平台
+        self.protocol.get_realtime_api_info()
         self.start_kws()
-        self.qth_init(PRODUCT_KEY, PRODUCT_SECRET)  # 云控制平台
-        self.update_realtime_token_thread.start()
 
     # ========== 业务控制 ===========
     def on_wakeup_key_click(self, args):
@@ -361,14 +355,9 @@ class Application(object):
                 self.aud.setVolume(val)
             if cmdId == 3:
                 logger.debug("设置唤醒词为：{}".format(val[0][1]))
-                DISPLAY_TEXT = val[0][1]
-                WAKEUP_KEYWORD = val[0][2]
-                ql_fs.touch(
-                    "/usr/config.json",
-                    {
-                        "DISPLAY_TEXT" : DISPLAY_TEXT,
-                        "WAKEUP_KEYWORD": WAKEUP_KEYWORD
-                    }
+                settings.update(
+                    DISPLAY_TEXT=val[0][1],
+                    WAKEUP_KEYWORD=val[0][2]
                 )
                 self.protocol.disconnect()
             if cmdId == 6:
@@ -400,8 +389,7 @@ class Application(object):
                 value[2] = True
             elif id == 3:
                 logger.debug("唤醒词")
-                data = ql_fs.read_json("/usr/config.json")
-                value[3] = [{1: data["DISPLAY_TEXT"], 2: data["WAKEUP_KEYWORD"]}]
+                value[3] = [{1: settings.get("DISPLAY_TEXT"), 2: settings.get("WAKEUP_KEYWORD")}]
             elif id == 4:
                 logger.debug("音量")
                 value[4] = self.aud.getVolume()
