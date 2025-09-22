@@ -100,7 +100,7 @@ class Application(object):
                 size = len(buf)
                 if size > 0:
                     self.protocol.input_audio_buffer_append(buf)
-                    logger.debug("input_audio_buffer_append {} length.".format(size))
+                    # logger.debug("input_audio_buffer_append {} length.".format(size))
             except:
                 pass
 
