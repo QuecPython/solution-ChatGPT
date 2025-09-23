@@ -63,7 +63,7 @@ class Application(object):
         self.power_green_led.blink(250, 250)
         self.charge_manager.enable_charge()  # 开启充电
         self.wakeup_key.enable()  # 使能唤醒按键
-        # self.qth_init(settings.PRODUCT_KEY, settings.PRODUCT_SECRET)  # 云控制平台
+        self.qth_init(settings.PRODUCT_KEY, settings.PRODUCT_SECRET)  # 云控制平台
         self.on_wakeup_key_click(None)
 
     # ========== 业务控制 ===========
@@ -93,7 +93,7 @@ class Application(object):
                         if len(data) > 0:
                             self.protocol.input_audio_buffer_append(data)
                             # logger.debug("input_audio_buffer_append {} data".format(len(data)))
-                    utime.sleep_ms(1)
+                    utime.sleep_ms(10)
         except Exception as e:
             usys.print_exception(e)
             logger.debug("chat process got {}".format(repr(e)))
@@ -125,6 +125,7 @@ class Application(object):
     def on_input_audio_buffer_speech_started(self, event):
         logger.debug("on_input_audio_buffer_speech_started: \n{}".format(event))
         self.wifi_green_led.on()
+        self.audio_manager.stop_music()
 
     def on_input_audio_buffer_speech_stopped(self, event):
         logger.debug("on_input_audio_buffer_speech_stopped: \n{}".format(event))
@@ -246,6 +247,7 @@ class Application(object):
                 logger.debug("AI 接入方式：{}".format(val))
             if cmdId == 10:
                 logger.debug("音乐播放地址: {}".format(val))
+                self.audio_manager.play_music(val)
             if cmdId == 7:
                 logger.debug("聊天模式：{}".format(val))
             if cmdId == 5:

@@ -3,7 +3,7 @@ import request
 import audio
 import G711
 from machine import Pin, ExtInt
-from usr.libs.threading import Condition, Thread
+from usr.libs.threading import Condition, Thread, Lock
 from usr.libs.logging import getLogger
 from usr.configure import settings
 
@@ -148,26 +148,87 @@ class AudioManager(object):
         self.vol_sub = ExtInt(ExtInt.GPIO47, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.__set_audio_volume, 250)
         self.vol_plus.enable()
         self.vol_sub.enable()
+        # 音乐播放
+        self.__stop_flag = False
+        self.t = None
+        self.lock = Lock()
+    
+    def play_music(self, url):
+        # https://uat-ai-media.iotomp.com/hls/music/maibaoge.mp3
+        # https://uat-ai-media.iotomp.com/hls/music/liangzhilaohu.mp3
+        # url = "https://uat-ai-media.iotomp.com/hls/music/liangzhilaohu.mp3"
+        self.__stop_flag = False
+        def inner(url):
+            logger.debug("play audio data start")
+            self.__before_start()
+            resp = request.get(url)
+            for data in resp.content:
+                if self.__stop_flag:
+                    resp.close()
+                    break
+                # logger.debug("play audio data length: {}".format(len(data)))
+                self.aud.playStream(3, data.encode())
+            self.aud.stopPlayStream()
+            logger.debug("play audio data stop")
+            self.__after_stop()
+        self.t = Thread(target=inner, args=(url, ))
+        self.t.start()
+
+    def stop_music(self):
+        self.__stop_flag = True
+        if self.t is not None:
+            self.t.join()
+    
+    def is_playing(self):
+        return (self.t is not None and self.t.is_running())
+    
+    def __before_start(self):
+        with self.lock:
+            if self.g711 is not None:
+                del self.g711
+                self.g711 = None
+            if self.pcm is not None:
+                self.pcm.close()
+                del self.pcm
+                self.pcm = None
+            self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.READONLY, audio.Audio.PCM.BLOCK, 25)
+            self.g711 = G711(self.pcm)
+
+    def __after_stop(self):
+        with self.lock:
+            if self.g711 is not None:
+                del self.g711
+                self.g711 = None
+            if self.pcm is not None:
+                self.pcm.close()
+                del self.pcm
+                self.pcm = None
+            self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.WRITEREAD, audio.Audio.PCM.BLOCK, 25)
+            self.g711 = G711(self.pcm)
 
     def init_g711(self):
-        self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.WRITEREAD, audio.Audio.PCM.BLOCK, 25)
-        self.g711 = G711(self.pcm)
+        with self.lock:
+            self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.WRITEREAD, audio.Audio.PCM.BLOCK, 25)
+            self.g711 = G711(self.pcm)
     
     def deinit_g711(self):
-        if self.g711 is not None:
-            del self.g711
-            self.g711 = None
-        if self.pcm is not None:
-            self.pcm.close()
-            del self.pcm
-            self.pcm = None
+        with self.lock:
+            if self.g711 is not None:
+                del self.g711
+                self.g711 = None
+            if self.pcm is not None:
+                self.pcm.close()
+                del self.pcm
+                self.pcm = None
     
     def g711_read(self):
-        return self.g711.read(0, 5)
+        with self.lock:
+            return self.g711.read(0, 5)
     
     def g711_write(self, data):
-        return self.g711.write(data, 0)
-    
+        with self.lock:
+            return self.g711.write(data, 0)
+
     def stop_kws(self):
         logger.debug("stop kws...")
         self.rec.ovkws_stop()
