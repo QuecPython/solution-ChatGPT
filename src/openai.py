@@ -155,7 +155,7 @@ class OpenAIRealTimeConnection(object):
     def __recv_thread_worker(self):
         while True:
             try:
-                raw = self.conn.recv(102400)
+                raw = self.conn.recv(1024*10)
             except Exception as e:
                 logger.info("{} recv thread break, Exception details: {}".format(self, repr(e)))
                 break

@@ -47,12 +47,13 @@ class Application(object):
         self.event_set = EventSet()
         self.lock = Lock()
 
+        self.audio_delta_pack_count = 0
+
     def on_keyword_spotting(self, state):
         logger.info("on_keyword_spotting: {}".format(state))
         if state[0] == 0 and state[1] == 1:
             # 唤醒词触发
-            # self.on_wakeup_key_click(None)
-            pass
+            self.on_wakeup_key_click(None)
         else:
             pass
 
@@ -63,6 +64,7 @@ class Application(object):
         self.charge_manager.enable_charge()  # 开启充电
         self.wakeup_key.enable()  # 使能唤醒按键
         # self.qth_init(settings.PRODUCT_KEY, settings.PRODUCT_SECRET)  # 云控制平台
+        self.on_wakeup_key_click(None)
 
     # ========== 业务控制 ===========
     def on_wakeup_key_click(self, args):
@@ -90,8 +92,7 @@ class Application(object):
                         data = self.audio_manager.g711_read()
                         if len(data) > 0:
                             self.protocol.input_audio_buffer_append(data)
-                    if not self.protocol.is_state_ok():
-                        break
+                            # logger.debug("input_audio_buffer_append {} data".format(len(data)))
                     utime.sleep_ms(1)
         except Exception as e:
             usys.print_exception(e)
@@ -109,133 +110,92 @@ class Application(object):
                 event_type = event["type"].replace(".", "_")
                 getattr(self, "on_{}".format(event_type))(event)
         except Exception as e:
-            # usys.print_exception(e)
             logger.error("{} on_event got: {}".format(type(self).__name__, repr(e)))
 
     def on_error(self, event):
-        # raise NotImplementedError("on_error not implementd.")
         logger.error("on_error: \n{}".format(event))
 
     def on_session_created(self, event):
-        # raise NotImplementedError("on_session_created not implemented.")
-        # logger.debug("on_session_created: \n{}".format(event))
+        logger.debug("on_session_created: \n{}".format(event))
         self.event_set.set(SESSION_CREATED_EVENT)
     
     def on_session_updated(self, event):
-        # raise NotImplementedError("on_session_updated not implemented.")
-        # logger.debug("on_session_updated: \n{}".format(event))
-        pass
+        logger.debug("on_session_updated: \n{}".format(event))
     
     def on_input_audio_buffer_speech_started(self, event):
-        # raise NotImplementedError("on_input_audio_buffer_speech_started not implemented.")
-        # logger.debug("on_input_audio_buffer_speech_started: \n{}".format(event))
-        logger.debug("on_input_audio_buffer_speech_started")
+        logger.debug("on_input_audio_buffer_speech_started: \n{}".format(event))
         self.wifi_green_led.on()
 
     def on_input_audio_buffer_speech_stopped(self, event):
-        # raise NotImplementedError("on_input_audio_buffer_speech_stopped not implemented.")
-        # logger.debug("on_input_audio_buffer_speech_stopped: \n{}".format(event))
+        logger.debug("on_input_audio_buffer_speech_stopped: \n{}".format(event))
         logger.debug("on_input_audio_buffer_speech_stopped")
         self.wifi_green_led.off()
+        self.audio_delta_pack_count = 0
 
     def on_input_audio_buffer_speech_committed(self, event):
-        # raise NotImplementedError("on_input_audio_buffer_speech_committed not implemented.")
-        # logger.debug("on_input_audio_buffer_speech_committed: \n{}".format(event))
-        pass
+        logger.debug("on_input_audio_buffer_speech_committed: \n{}".format(event))
     
     def on_input_audio_buffer_committed(self, event):
-        # raise NotImplementedError("on_input_audio_buffer_committed not implemented.")
-        # logger.debug("on_input_audio_buffer_committed: \n{}".format(event))
-        pass
+        logger.debug("on_input_audio_buffer_committed: \n{}".format(event))
     
     def on_input_audio_buffer_cleared(self, event):
-        # logger.debug("on_input_audio_buffer_cleared: \n{}".format(event))
-        pass
+        logger.debug("on_input_audio_buffer_cleared: \n{}".format(event))
 
     def on_conversation_item_created(self, event):
-        # raise NotImplementedError("on_conversation_item_created not implemented.")
-        # logger.debug("on_conversation_item_created: \n{}".format(event))
-        pass
+        logger.debug("on_conversation_item_created: \n{}".format(event))
     
     def on_conversation_item_input_audio_transcription_completed(self, event):
-        # raise NotImplementedError("on_conversation_item_input_audio_transcription_completed not implemented.")
-        logger.debug("on_conversation_item_input_audio_transcription_completed: \n{}".format(repr(event["transcript"])))
-    
+        logger.debug("on_conversation_item_input_audio_transcription_completed: \n{}".format(event))
+
     def on_conversation_item_truncated(self, event):
-        # raise NotImplementedError("on_conversation_item_truncated not implemented.")
-        # logger.debug("on_conversation_item_truncated event: \n{}".format(event))
-        pass
+        logger.debug("on_conversation_item_truncated event: \n{}".format(event))
 
     def on_response_created(self, event):
-        # raise NotImplementedError("on_response_created not implemented.")
-        # logger.debug("on_response_created: \n{}".format(event))
-        pass
+        logger.debug("on_response_created: \n{}".format(event))
 
     def on_response_cancelled(self, event):
-        # raise NotImplementedError("on_response_cancelled not implemented.")
-        # logger.debug("on_response_cancelled: \n{}".format(event))
-        pass
+        logger.debug("on_response_cancelled: \n{}".format(event))
 
     def on_rate_limits_updated(self, event):
-        # raise NotImplementedError("on_rate_limits not implemented.")
-        # logger.debug("on_rate_limits_updated: \n{}".format(event))
-        pass
+        logger.debug("on_rate_limits_updated: \n{}".format(event))
 
     def on_response_output_item_added(self, event):
-        # raise NotImplementedError("on_response_output_item_added not implemented.")
-        # logger.debug("on_response_output_item_added: \n{}".format(event))
-        pass
+        logger.debug("on_response_output_item_added: \n{}".format(event))
     
     def on_response_content_part_added(self, event):
-        # raise NotImplementedError("on_response_content_part_added not implemented.")
-        # logger.debug("on_response_content_part_added: \n{}".format(event))
-        pass
+        logger.debug("on_response_content_part_added: \n{}".format(event))
 
     def on_response_text_delta(self, event):
-        # raise NotImplementedError("on_response_text_delta not implemented.")
-        # logger.debug("on_response_text_delta: \n{}".format(event))
-        pass
+        logger.debug("on_response_text_delta: \n{}".format(event))
 
     def on_response_audio_transcript_delta(self, event):
-        # raise NotImplementedError("on_response_audio_transcript_delta not implemented.")
-        # logger.debug("on_response_audio_transcript_delta: \n{}".format(event))
-        pass
+        logger.debug("on_response_audio_transcript_delta: \n{}".format(event))
     
     def on_response_audio_transcript_done(self, event):
-        # raise NotImplementedError("on_response_audio_transcript_done not implemented.")
         logger.debug("on_response_audio_transcript_done: \n{}".format(repr(event["text"])))
 
     def on_response_content_part_done(self, event):
-        # raise NotImplementedError("on_response_content_part_done not implemented.")
-        # logger.debug("on_response_content_part_done: \n{}".format(event))
-        pass
+        logger.debug("on_response_content_part_done: \n{}".format(event))
 
     def on_response_output_item_done(self, event):
-        # raise NotImplementedError("on_response_output_item_done not implemented.")
-        # logger.debug("on_response_output_item_done: \n{}".format(event))
-        pass
+        logger.debug("on_response_output_item_done: \n{}".format(event))
 
     def on_response_audio_delta(self, event):
         data = base64.b64decode(event["delta"])
         self.audio_manager.g711_write(data)
 
     def on_response_audio_done(self, event):
-        # logger.debug("on_response_audio_done: \n{}".format(event))
-        pass
+        logger.debug("on_response_audio_done: \n{}".format(event))
 
     def on_response_done(self, event):
-        # logger.debug("on_response_done: \n{}".format(event))
+        logger.debug("on_response_done: \n{}".format(event))
         gc.collect()
 
     def on_response_function_call_arguments_delta(self, event):
-        # raise NotImplementedError("on_response_done not implemented.")
-        # logger.debug("on_response_done: \n{}".format(event))
-        pass
+        logger.debug("on_response_done: \n{}".format(event))
     
     def on_response_function_call_arguments_done(self, event):
-        # raise NotImplementedError("on_response_done not implemented.")
-        # logger.debug("on_response_done: \n{}".format(event))
-        pass
+        logger.debug("on_response_done: \n{}".format(event))
 
     # ========= 云控制 =========
     def qth_init(self, pk, ps):
@@ -270,7 +230,7 @@ class Application(object):
         for cmdId, val in value.items():
             if cmdId == 4:
                 logger.debug("调节音量: {}".format(val))
-                self.aud.setVolume(val)
+                self.audio_manager.aud.setVolume(val)
             if cmdId == 3:
                 logger.debug("设置唤醒词为：{}".format(val[0][1]))
                 settings.update(
@@ -286,7 +246,6 @@ class Application(object):
                 logger.debug("AI 接入方式：{}".format(val))
             if cmdId == 10:
                 logger.debug("音乐播放地址: {}".format(val))
-                self.player.play(val)
             if cmdId == 7:
                 logger.debug("聊天模式：{}".format(val))
             if cmdId == 5:
@@ -310,7 +269,6 @@ class Application(object):
                 value[3] = [{1: settings.get("DISPLAY_TEXT"), 2: settings.get("WAKEUP_KEYWORD")}]
             elif id == 4:
                 logger.debug("音量")
-                value[4] = self.aud.getVolume()
             elif id == 5:
                 logger.debug("设备模式")
                 value[5] = 1

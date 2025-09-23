@@ -163,16 +163,10 @@ class AudioManager(object):
             self.pcm = None
     
     def g711_read(self):
-        return self.g711.read(0, 20)
+        return self.g711.read(0, 5)
     
     def g711_write(self, data):
         return self.g711.write(data, 0)
-
-    def get_volume(self):
-        return self.aud.getVolume()
-    
-    def set_volume(self, level):
-        return self.aud.setVolume(level)
     
     def stop_kws(self):
         logger.debug("stop kws...")
