@@ -2,14 +2,11 @@ import gc
 import usys
 import utime
 import base64
-import G711
-import audio
-import ql_fs
 from machine import ExtInt, Pin
 from usr.libs.threading import Thread, BoundedSemaphore, EventSet, Lock
 from usr.libs.logging import getLogger
-from usr.utils import ChargeManager, Led, Player
-from usr.protocol import WebSocketClient
+from usr.utils import ChargeManager, Led, AudioManager
+from usr.openai import OpenAIRealTimeConnection
 from usr.configure import settings
 from usr.libs.logging import getLogger
 from usr.libs.qth import qth_init, qth_config, qth_bus
@@ -37,103 +34,25 @@ class Application(object):
         self.led_power_pin = Pin(Pin.GPIO27, Pin.OUT, Pin.PULL_DISABLE, 0)
 
         # openAI Realtime
-        self.protocol = WebSocketClient()
-        self.protocol.set_callback(event_handler=self.__on_event)
+        self.protocol = OpenAIRealTimeConnection(event_cb=self.on_openai_event)
 
         # 音频管理
-        self.aud = audio.Audio(0)  # 初始化音频播放通道
-        self.aud.set_pa(29)
-        self.aud.setVolume(9)  # 设置音量
-        self.player = Player(
-            self.aud, 
-            start_cb=lambda: self.reset_pcm_object(8000, audio.Audio.PCM.READONLY),
-            stop_cb=lambda: self.reset_pcm_object(8000, audio.Audio.PCM.WRITEREAD)
-        )
-        self.pcm = None
-        self.g711 = None
-        self.rec = audio.Record(0)
-        self.rec.ovkws_set_callback(self.on_keyword_spotting)
+        self.audio_manager = AudioManager(kws_cb=self.on_keyword_spotting)
         self.chat_thread = None
         
         # Wakeup 按键
         self.wakeup_key = ExtInt(ExtInt.GPIO41, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.on_wakeup_key_click, 250)
-        
-        # 音量按键
-        self.vol_plus = ExtInt(ExtInt.GPIO20, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.__set_audio_volume, 250)
-        self.vol_sub = ExtInt(ExtInt.GPIO47, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.__set_audio_volume, 250)
 
         self.__semphore = BoundedSemaphore(value=1)
         self.event_set = EventSet()
         self.lock = Lock()
 
-        self.__kws_thread = None
-        self.__kws_thread_stop_flag = False
-
-    def __set_audio_volume(self, args):
-        v = self.aud.getVolume() + (1 if args[0] == 47 else -1)
-        v = 11 if v > 11 else 0 if v < 0 else v
-        self.aud.setVolume(v)
-        logger.debug("__set_audio_volume: {}".format(v))
-
-    def reset_pcm_object(self, samplerate=16000, mode=audio.Audio.PCM.WRITEREAD):
-        with self.lock:
-            if self.g711:
-                self.g711.stop_record_v3()
-                del self.g711
-                self.g711 = None
-            if self.pcm:
-                self.pcm.close()
-                del self.pcm
-                self.pcm = None
-            self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, samplerate, mode, audio.Audio.PCM.BLOCK, 25)
-            if samplerate == 8000:
-                self.g711 = G711(self.pcm)
-                # self.g711.set_callback_v3(self.__g711_cb)
-                # self.g711.start_record_v3(0, 200)
-        logger.debug("change pcm object as {} Hz and mode: {}".format(samplerate, mode))
-    
-    # def __g711_cb(self, args):
-    #     if(args[1] == 1):
-    #         buf = bytearray(args[0])
-    #         self.g711.read_v3(buf, args[0])
-    #         try:
-    #             size = len(buf)
-    #             if size > 0:
-    #                 self.protocol.input_audio_buffer_append(buf)
-    #                 # logger.debug("input_audio_buffer_append {} length.".format(size))
-    #         except:
-    #             pass
-
-    def stop_kws(self):
-        logger.debug("stop kws...")
-        self.rec.ovkws_stop()
-        self.__kws_thread_stop_flag = True
-        if self.__kws_thread:
-            self.__kws_thread.join()
-
-    def start_kws(self):
-        logger.debug("start kws...")
-        self.reset_pcm_object(samplerate=16000)
-        value = settings.get("WAKEUP_KEYWORD")
-        self.rec.ovkws_start(value, 0.8)
-        logger.debug("唤醒词：{}".format(value))
-        self.__kws_thread_stop_flag = False
-        self.__kws_thread = Thread(self.__kws_thread_handler)
-        self.__kws_thread.start(stack_size=16)
-
-    def __kws_thread_handler(self):
-        while True:
-            if self.__kws_thread_stop_flag:
-                break
-            with self.lock:
-                self.pcm.read(1024)
-            utime.sleep_ms(10)
-
     def on_keyword_spotting(self, state):
         logger.info("on_keyword_spotting: {}".format(state))
         if state[0] == 0 and state[1] == 1:
             # 唤醒词触发
-            self.on_wakeup_key_click(None)
+            # self.on_wakeup_key_click(None)
+            pass
         else:
             pass
 
@@ -143,11 +62,7 @@ class Application(object):
         self.power_green_led.blink(250, 250)
         self.charge_manager.enable_charge()  # 开启充电
         self.wakeup_key.enable()  # 使能唤醒按键
-        self.vol_plus.enable()
-        self.vol_sub.enable()
-        self.qth_init(settings.PRODUCT_KEY, settings.PRODUCT_SECRET)  # 云控制平台
-        self.protocol.get_realtime_api_info()
-        self.start_kws()
+        # self.qth_init(settings.PRODUCT_KEY, settings.PRODUCT_SECRET)  # 云控制平台
 
     # ========== 业务控制 ===========
     def on_wakeup_key_click(self, args):
@@ -162,8 +77,8 @@ class Application(object):
         logger.debug("chat processing...")
         self.power_green_led.blink(50, 50)
         try:
-            self.stop_kws()
-            self.reset_pcm_object(samplerate=8000)
+            self.audio_manager.stop_kws()
+            self.audio_manager.init_g711()
             with self.protocol:
                 if not self.event_set.wait(SESSION_CREATED_EVENT, timeout=10, clear=True):
                     logger.debug("protocol connect failed, get no SESSION_CREATED_EVENT after 10 seconds.")
@@ -172,7 +87,7 @@ class Application(object):
                 self.power_green_led.on()
                 while True:
                     with self.lock:
-                        data = self.g711.read(0, 20)
+                        data = self.audio_manager.g711_read()
                         if len(data) > 0:
                             self.protocol.input_audio_buffer_append(data)
                     if not self.protocol.is_state_ok():
@@ -184,10 +99,11 @@ class Application(object):
         finally:
             logger.debug("chat process thread break out")
             self.__semphore.release()
-            self.start_kws()
+            self.audio_manager.deinit_g711()
+            self.audio_manager.start_kws()
             self.power_green_led.blink(250, 250)
 
-    def __on_event(self, event):
+    def on_openai_event(self, event):
         try:
             if "type" in event:
                 event_type = event["type"].replace(".", "_")
@@ -215,8 +131,6 @@ class Application(object):
         # logger.debug("on_input_audio_buffer_speech_started: \n{}".format(event))
         logger.debug("on_input_audio_buffer_speech_started")
         self.wifi_green_led.on()
-        if self.player.is_playing():
-            self.player.stop()
 
     def on_input_audio_buffer_speech_stopped(self, event):
         # raise NotImplementedError("on_input_audio_buffer_speech_stopped not implemented.")
@@ -303,7 +217,7 @@ class Application(object):
 
     def on_response_audio_delta(self, event):
         data = base64.b64decode(event["delta"])
-        self.g711.write(data, 0)
+        self.audio_manager.g711_write(data)
 
     def on_response_audio_done(self, event):
         # logger.debug("on_response_audio_done: \n{}".format(event))

@@ -6,8 +6,7 @@ import request
 import ubinascii
 import uhashlib
 import uwebsocket as ws
-from usr.libs.datetime import DateTime
-from usr.libs.threading import Thread, Lock
+from usr.libs.threading import Thread
 from usr.libs.logging import getLogger
 from usr.configure import settings
 
@@ -60,16 +59,6 @@ def get_openai_realtime_token():
             }
         )
     )
-    # {
-    #     'code': 200,
-    #     'msg': '',
-    #     'data': {
-    #         'path': '/realtime',
-    #         'ephemeralToken': 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJyZWFsdGltZSIsImp0aSI6IjQ1MWU5Y2ViLWM4ZWItNDE2Mi04Nzg0LTljZGY4ZGUxNGFjMSIsImlhdCI6MTc1MzY4NDYzMywiZXhwIjoxNzUzNjg0ODEzfQ.CAj6YMLYgWm2vAZDIDiUW1twHgKRHnM8hQuRt-45s6U', 
-    #         'url': 'wss://ai-ws.iotomp.com', 
-    #         'expireAt': 1753684813638
-    #      }
-    # }
     json_data = resp.json()
     logger.debug("get_openai_realtime_token resp json data: ", json_data)
     if json_data["code"] != 200:
@@ -77,13 +66,25 @@ def get_openai_realtime_token():
     return json_data["data"]
 
 
-class WebSocketClient(object):
+class EventIDGenerator(object):
 
-    def __init__(self, debug=False):
-        self.__lock = Lock()
+    def __init__(self):
+        self.__id = 1
+
+    def get(self):
+        self.__id += 1
+        if self.__id > 10000:
+            self.__id = 1
+        return self.__id
+
+
+class OpenAIRealTimeConnection(object):
+
+    def __init__(self, event_cb=lambda event: None, debug=True):
         self.debug = debug
-        self.__event_handler = None
         self.__recv_thread = None
+        self.__event_cb = event_cb
+        self.__event_id_generator = EventIDGenerator()
 
     def __str__(self):
         return "{}".format(type(self).__name__)
@@ -96,14 +97,14 @@ class WebSocketClient(object):
         return self.disconnect()
 
     @property
-    def cli(self):
+    def conn(self):
         __client__ = getattr(self, "__client__", None)
         if __client__ is None:
             raise RuntimeError("{} not connected".format(self))
         return __client__
 
     def is_state_ok(self):
-        return self.cli.sock.getsocketsta() == 4
+        return self.conn.sock.getsocketsta() == 4
     
     def disconnect(self):
         """disconnect websocket"""
@@ -117,25 +118,22 @@ class WebSocketClient(object):
 
     def get_realtime_api_info(self):
         """通过移远云接口获取 realtime 连接 url 和 token"""
-        with self.__lock:
-            url = getattr(self, "__url__", None)
-            token = getattr(self, "__token__", None)
-            expire = getattr(self, "__expire__", 0)
-            if all([url, token, expire]) and expire // 1000 > DateTime.now().timestamp:
-                return url, token, expire
-
-            data = get_openai_realtime_token()
-            url = data["url"] + data["path"]
-            token = data["ephemeralToken"]
-            expire = data["expireAt"]
-            setattr(self, "__url__", url)
-            setattr(self, "__token__", token)
-            setattr(self, "__expire__", expire)
-            return url, token, expire
+        # url = getattr(self, "__url__", None)
+        # token = getattr(self, "__token__", None)
+        # expire = getattr(self, "__expire__", 0)
+        # if all([url, token, expire]) and expire // 1000 > DateTime.now().timestamp:
+        #     return url, token, expire
+        data = get_openai_realtime_token()
+        url = data["url"] + data["path"]
+        token = data["ephemeralToken"]
+        expire = data["expireAt"]
+        # setattr(self, "__url__", url)
+        # setattr(self, "__token__", token)
+        # setattr(self, "__expire__", expire)
+        return url, token, expire
 
     def connect(self):
         """connect websocket"""
-        
         url, token, expire = self.get_realtime_api_info()
         __client__ = ws.Client.connect(
             url,
@@ -155,54 +153,23 @@ class WebSocketClient(object):
             return __client__
 
     def __recv_thread_worker(self):
-
         while True:
             try:
-                raw = self.recv()
+                raw = self.conn.recv(102400)
             except Exception as e:
                 logger.info("{} recv thread break, Exception details: {}".format(self, repr(e)))
                 break
-            
             if raw is None or raw == "":
                 logger.info("{} recv thread break, Exception details: read none bytes, websocket disconnect".format(self))
                 break
-
             try:
-                obj = ujson.loads(raw)
+                self.__event_cb(ujson.loads(raw))
             except Exception as e:
-                print("JsonParse parse failed: {}".format(repr(e)))
-            else:
-                self.__handle_event(obj)
-
-    def __handle_event(self, event):
-        if self.__event_handler is None:
-            logger.warn("json message handler is None, did you forget to set it?")
-            return
-        try:
-            self.__event_handler(event)
-        except Exception as e:
-            logger.debug("{} handle json message failed, Exception details: {}".format(self, repr(e)))
-    
-    def set_callback(self, event_handler=None):
-        if event_handler is not None and callable(event_handler):
-            self.__event_handler = event_handler
-        else:
-            raise TypeError("event_handler must be callable")
-
-    def send(self, data):
-        """send data to server"""
-        # logger.debug("send data: ", data)
-        self.cli.send(data)
-
-    def recv(self):
-        """receive data from server, return None or "" means disconnection"""
-        data = self.cli.recv(102400)
-        # logger.debug("recv data: ", data)
-        return data
+                print("handle event error: {}".format(repr(e)))
 
     def input_audio_buffer_append(self, buffer):
         # logger.debug("input_audio_buffer_append {} length audio data".format(len(buffer)))
-        return self.send(
+        return self.conn.send(
             ujson.dumps(
                 {
                     "audio": base64.b64encode(buffer),
@@ -214,7 +181,7 @@ class WebSocketClient(object):
     
     def input_audio_buffer_commit(self):
         logger.debug("input_audio_buffer_commit")
-        return self.send(
+        return self.conn.send(
             ujson.dumps(
                 {
                     "event_id": "event_{}".format(urandom.randint(0, 10000)),
@@ -226,7 +193,7 @@ class WebSocketClient(object):
     
     def conversation_item_truncate(self, item_id):
         logger.debug("conversation_item_truncate: {}".format(item_id))
-        return self.send(
+        return self.conn.send(
             ujson.dumps(
                 {
                     "event_id": "event_{}".format(urandom.randint(0, 10000)),
@@ -240,10 +207,10 @@ class WebSocketClient(object):
 
     def response_cancel(self):
         logger.debug("response_cancel")
-        return self.send(
+        return self.conn.send(
             ujson.dumps(
                 {
-                    "event_id": "event_{}".format(urandom.randint(0, 10000)),
+                    "event_id": "event_{}".format(self.__event_id_generator.get()),
                     "type": "response.cancel"
                 }
             )
@@ -251,10 +218,10 @@ class WebSocketClient(object):
 
     def response_create(self):
         logger.debug("response_create")
-        return self.send(
+        return self.conn.send(
             ujson.dumps(
                 {
-                    "event_id": "event_{}".format(urandom.randint(0, 10000)),
+                    "event_id": "event_{}".format(self.__event_id_generator.get()),
                     "type": "response.create",
                     "response": {
                         "output_modalities": [ "audio" ]
@@ -265,10 +232,10 @@ class WebSocketClient(object):
 
     def input_audio_buffer_clear(self):
         logger.debug("input_audio_buffer_clear")
-        return self.send(
+        return self.conn.send(
             ujson.dumps(
                 {
-                    "event_id": "event_{}".format(urandom.randint(0, 10000)),
+                    "event_id": "event_{}".format(self.__event_id_generator.get()),
                     "type": "input_audio_buffer.clear"
                 }
             )
