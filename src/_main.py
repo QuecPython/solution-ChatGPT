@@ -43,7 +43,7 @@ class Application(object):
         # 音频管理
         self.aud = audio.Audio(0)  # 初始化音频播放通道
         self.aud.set_pa(29)
-        self.aud.setVolume(11)  # 设置音量
+        self.aud.setVolume(9)  # 设置音量
         self.player = Player(
             self.aud, 
             start_cb=lambda: self.reset_pcm_object(8000, audio.Audio.PCM.READONLY),
@@ -88,21 +88,21 @@ class Application(object):
             self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, samplerate, mode, audio.Audio.PCM.BLOCK, 25)
             if samplerate == 8000:
                 self.g711 = G711(self.pcm)
-                self.g711.set_callback_v3(self.__g711_cb)
-                self.g711.start_record_v3(0, 200)
+                # self.g711.set_callback_v3(self.__g711_cb)
+                # self.g711.start_record_v3(0, 200)
         logger.debug("change pcm object as {} Hz and mode: {}".format(samplerate, mode))
     
-    def __g711_cb(self, args):
-        if(args[1] == 1):
-            buf = bytearray(args[0])
-            self.g711.read_v3(buf, args[0])
-            try:
-                size = len(buf)
-                if size > 0:
-                    self.protocol.input_audio_buffer_append(buf)
-                    # logger.debug("input_audio_buffer_append {} length.".format(size))
-            except:
-                pass
+    # def __g711_cb(self, args):
+    #     if(args[1] == 1):
+    #         buf = bytearray(args[0])
+    #         self.g711.read_v3(buf, args[0])
+    #         try:
+    #             size = len(buf)
+    #             if size > 0:
+    #                 self.protocol.input_audio_buffer_append(buf)
+    #                 # logger.debug("input_audio_buffer_append {} length.".format(size))
+    #         except:
+    #             pass
 
     def stop_kws(self):
         logger.debug("stop kws...")
@@ -171,9 +171,13 @@ class Application(object):
                 logger.debug("protocol connect successed")
                 self.power_green_led.on()
                 while True:
+                    with self.lock:
+                        data = self.g711.read(0, 20)
+                        if len(data) > 0:
+                            self.protocol.input_audio_buffer_append(data)
                     if not self.protocol.is_state_ok():
                         break
-                    utime.sleep(1)
+                    utime.sleep_ms(1)
         except Exception as e:
             usys.print_exception(e)
             logger.debug("chat process got {}".format(repr(e)))
