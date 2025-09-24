@@ -273,6 +273,6 @@ class AudioManager(object):
 
     def __set_audio_volume(self, args):
         v = self.aud.getVolume() + (1 if args[0] == 47 else -1)
-        v = 11 if v > 11 else 0 if v < 0 else v
+        v = 10 if v > 10 else 0 if v < 1 else v
         self.aud.setVolume(v)
         logger.debug("__set_audio_volume: {}".format(v))
