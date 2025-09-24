@@ -131,6 +131,9 @@ class Player(object):
 # ================ 音频流管理 =====================
 
 
+RECORD_TIME_MS = 100
+
+
 class AudioManager(object):
 
     def __init__(self, kws_cb=lambda state: None, g711_cb=lambda args: None):
@@ -195,7 +198,7 @@ class AudioManager(object):
             self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.READONLY, audio.Audio.PCM.BLOCK, 25)
             self.g711 = G711(self.pcm)
             self.g711.set_callback_v3(self.g711_cb)
-            self.g711.start_record_v3(0, 500)
+            self.g711.start_record_v3(0, RECORD_TIME_MS)
 
     def __after_stop(self):
         with self.lock:
@@ -209,14 +212,14 @@ class AudioManager(object):
             self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.WRITEREAD, audio.Audio.PCM.BLOCK, 25)
             self.g711 = G711(self.pcm)
             self.g711.set_callback_v3(self.g711_cb)
-            self.g711.start_record_v3(0, 500)
+            self.g711.start_record_v3(0, RECORD_TIME_MS)
 
     def init_g711(self):
         with self.lock:
             self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.WRITEREAD, audio.Audio.PCM.BLOCK, 25)
             self.g711 = G711(self.pcm)
             self.g711.set_callback_v3(self.g711_cb)
-            self.g711.start_record_v3(0, 500)
+            self.g711.start_record_v3(0, RECORD_TIME_MS)
     
     def deinit_g711(self):
         with self.lock:
