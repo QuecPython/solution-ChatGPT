@@ -37,7 +37,7 @@ class Application(object):
         self.protocol = OpenAIRealTimeConnection(event_cb=self.on_openai_event)
 
         # 音频管理
-        self.audio_manager = AudioManager(kws_cb=self.on_keyword_spotting)
+        self.audio_manager = AudioManager(kws_cb=self.on_keyword_spotting, g711_cb=self.g711_cb)
         self.chat_thread = None
         
         # Wakeup 按键
@@ -88,12 +88,15 @@ class Application(object):
                 logger.debug("protocol connect successed")
                 self.power_green_led.on()
                 while True:
-                    with self.lock:
-                        data = self.audio_manager.g711_read()
-                        if len(data) > 0:
-                            self.protocol.input_audio_buffer_append(data)
+                    # with self.lock:
+                        # data = self.audio_manager.g711_read()
+                        # if len(data) > 0:
+                        #     self.protocol.input_audio_buffer_append(data)
                             # logger.debug("input_audio_buffer_append {} data".format(len(data)))
-                    utime.sleep_ms(10)
+                    # utime.sleep_ms(10)
+                    if not self.protocol.is_state_ok():
+                        break
+                    utime.sleep(1)
         except Exception as e:
             usys.print_exception(e)
             logger.debug("chat process got {}".format(repr(e)))
@@ -103,6 +106,17 @@ class Application(object):
             self.audio_manager.deinit_g711()
             self.audio_manager.start_kws()
             self.power_green_led.blink(250, 250)
+    
+    def g711_cb(self, args):
+        global count
+        if(args[1] == 1):
+            buf = bytearray(args[0])
+            self.audio_manager.g711_read_v3(buf, args[0])
+            if len(buf) > 0:
+                try:
+                    self.protocol.input_audio_buffer_append(buf)
+                except:
+                    pass
 
     def on_openai_event(self, event):
         try:

@@ -46,7 +46,7 @@ def get_openai_realtime_token():
                 "deviceKey": settings.DEVICE_KEY,
                 "timestamp": timestamp,
                 "sign": sign,
-                "inputAudioNoiseReduction": "far_field",
+                "inputAudioNoiseReduction": "near_field",
                 # "turnDetection": None,
                 "turnDetection": {
                     "createResponse": True,
