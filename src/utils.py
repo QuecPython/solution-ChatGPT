@@ -265,11 +265,13 @@ class AudioManager(object):
         self.__kws_thread.start(stack_size=16)
 
     def __kws_thread_handler(self):
+        logger.debug("__kws_thread_handler enter")
         while True:
             if self.__kws_stop_flag:
                 break
             self.pcm.read(1024)
-            utime.sleep_ms(1)
+            utime.sleep_ms(10)
+        logger.debug("__kws_thread_handler exit")
 
     def __set_audio_volume(self, args):
         v = self.aud.getVolume() + (1 if args[0] == 47 else -1)

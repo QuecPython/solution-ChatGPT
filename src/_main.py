@@ -65,6 +65,7 @@ class Application(object):
         self.wakeup_key.enable()  # 使能唤醒按键
         self.qth_init(settings.PRODUCT_KEY, settings.PRODUCT_SECRET)  # 云控制平台
         self.on_wakeup_key_click(None)
+        # self.audio_manager.start_kws()
 
     # ========== 业务控制 ===========
     def on_wakeup_key_click(self, args):
@@ -108,7 +109,6 @@ class Application(object):
             self.power_green_led.blink(250, 250)
     
     def g711_cb(self, args):
-        global count
         if(args[1] == 1):
             buf = bytearray(args[0])
             self.audio_manager.g711_read_v3(buf, args[0])
@@ -123,6 +123,8 @@ class Application(object):
             if "type" in event:
                 event_type = event["type"].replace(".", "_")
                 getattr(self, "on_{}".format(event_type))(event)
+            else:
+                logger.warn("open ai event got no type keyword: {}".format(event))
         except Exception as e:
             logger.error("{} on_event got: {}".format(type(self).__name__, repr(e)))
 
