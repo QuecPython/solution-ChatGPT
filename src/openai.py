@@ -53,7 +53,7 @@ def get_openai_realtime_token():
                     "interruptResponse": True,
                     "prefixPaddingMs": 300,
                     "silenceDurationMs": 500,
-                    "threshold": 0.5,
+                    "threshold": 0.8,
                     "type": "server_vad"
                 }
             }

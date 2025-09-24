@@ -47,8 +47,6 @@ class Application(object):
         self.event_set = EventSet()
         self.lock = Lock()
 
-        self.audio_delta_pack_count = 0
-
     def on_keyword_spotting(self, state):
         logger.info("on_keyword_spotting: {}".format(state))
         if state[0] == 0 and state[1] == 1:
@@ -145,9 +143,7 @@ class Application(object):
 
     def on_input_audio_buffer_speech_stopped(self, event):
         logger.debug("on_input_audio_buffer_speech_stopped: \n{}".format(event))
-        logger.debug("on_input_audio_buffer_speech_stopped")
         self.wifi_green_led.off()
-        self.audio_delta_pack_count = 0
 
     def on_input_audio_buffer_speech_committed(self, event):
         logger.debug("on_input_audio_buffer_speech_committed: \n{}".format(event))
