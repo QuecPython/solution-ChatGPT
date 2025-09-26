@@ -1,7 +1,7 @@
 from usr.libs import CurrentApp
-from usr.libs.qth import qth_init, qth_config, qth_bus
 from usr.libs.logging import getLogger
 from usr.configure import settings
+from . import Qth
 
 
 logger = getLogger(__name__)
@@ -11,10 +11,11 @@ class QthClient(object):
 
     def init(self):
         logger.info("init {} extension".format(type(self).__name__))
-        qth_init.init()
-        qth_config.setServer(settings.QTH_SERVER)
-        qth_config.setProductInfo(settings.PRODUCT_KEY, settings.PRODUCT_SECRET)
-        qth_config.setEventCb(
+        Qth.init()
+        Qth.setProductInfo(settings.PRODUCT_KEY, settings.PRODUCT_SECRET)
+        Qth.setServer(settings.QTH_SERVER)
+        Qth.setAppVer(settings.get_version(), self.app_ota_result_cb)
+        Qth.setEventCb(
             {
                 'devEvent': self.event_cb, 
                 'recvTrans': self.recv_trans_cb,
@@ -27,18 +28,17 @@ class QthClient(object):
                 }
             }
         )
-        qth_init.start()
+        Qth.start()
     
     def event_cb(self, event, result):
-        logger.debug('dev event: {} result: {}'.format(event, result))
+        logger.debug('event_cb event: {} result: {}'.format(event, result))
 
     def recv_trans_cb(self, value):
-        ret = qth_bus.sendTrans(1, value)
-        logger.debug('recvTrans value: {} ret: {}'.format(value, ret))
+        ret = Qth.sendTrans(1, value)
+        logger.debug('recv_trans_cb value: {} ret: {}'.format(value, ret))
     
     def recv_tsl_cb(self, value):
-
-        # logger.debug('recvTsl:{}'.format(value))
+        # logger.debug('recv_tsl_cb: {}'.format(value))
         for cmdId, val in value.items():
             if cmdId == 4:
                 logger.debug("调节音量: {}".format(val))
@@ -69,7 +69,7 @@ class QthClient(object):
                 pass
 
     def read_tsl_cb(self, ids, pkgId):
-        logger.debug('readTsl ids: {} pkgId: {}'.format(ids, pkgId))
+        logger.debug('read_tsl_cb ids: {} pkgId: {}'.format(ids, pkgId))
         value=dict()
         for id in ids:
             if id == 1:
@@ -106,21 +106,21 @@ class QthClient(object):
                 value[14] = 1
             else:
                 pass
-        qth_bus.ackTsl(1, value, pkgId)
+        Qth.ackTsl(1, value, pkgId)
 
     def recv_tsl_server_cb(self, serverId, value, pkgId):
-        logger.debug('recvTslServer serverId:{} value:{} pkgId:{}'.format(serverId, value, pkgId))
-        qth_bus.ackTslServer(1, serverId, value, pkgId)
+        logger.debug('recv_tsl_server_cb serverId:{} value:{} pkgId:{}'.format(serverId, value, pkgId))
+        Qth.ackTslServer(1, serverId, value, pkgId)
 
     def ota_plan_cb(self, plans):
-        logger.debug('otaPlan:{}'.format(plans))
+        """[(组件类型,组件标识,源版本,目标版本,Ota升级最小电量,ota升级需要磁盘空间,Ota升级最小信号强度),]"""
+        # [(1, 'appota', None, '2.0.0', 30, 25988, -113)]
+        # [(0, 'fota', None, 'EC800MCNLER01A03M08_OCPU_QPY_TEST0813', 30, 11855635, -113)]
+        logger.debug('ota_plan_cb: {}'.format(plans))
+        Qth.otaAction(1)
 
     def fota_result_cb(self, comp_no, result):
-        logger.debug('fotaResult comp_no:{} result:{}'.format(comp_no, result))
+        logger.debug('fota_result_cb comp_no:{} result:{}'.format(comp_no, result))
 
-    def App_sotaInfoCb(self, comp_no, version, url,fileSize, md5, crc):   # fileSize是可选参数
-        logger.debug('sotaInfo comp_no:{} version:{} url:{} fileSize:{} md5:{} crc:{}'.format(comp_no, version, url,fileSize, md5, crc))
-        # 当使用url下载固件完成，且MCU更新完毕后，需要获取MCU最新的版本信息，并通过setMcuVer进行更新
-
-    def App_sotaResultCb(self, comp_no, result):
-        logger.debug('sotaResult comp_no:{} result:{}'.format(comp_no, result))
+    def app_ota_result_cb(self, comp_no, result):
+        logger.debug('app_sota_result_cb comp_no:{} result:{}'.format(comp_no, result))
