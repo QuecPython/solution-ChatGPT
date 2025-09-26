@@ -1,5 +1,4 @@
 import modem
-
 from usr.libs.common import Database
 
 
@@ -25,14 +24,14 @@ class Settings(Database):
     PRODUCT_SECRET = "ZFFrbFdOUHl0L0s0"
     ACCESS_SECRET = "6715b6c655754376a4a3a4a06b48244b"
     AUTHORIZATION_VALUE = "af78e30677dd671fa5351017a299847"
-
+    QTH_SERVER = "mqtt://iot-south.acceleronix.io:1883"
 
     # 仿真环境
-    # AIGC_API_URL = "https://uat-one-api.iotomp.com/v2/aibiz/openapi/v1/chatgpt/createSession"
-    # AIGC_API_URL = "https://uat-one-api.iotomp.com/v2/aibiz/openapi/v1/chatgpt/production/test/createSession"
-    # PRODUCT_KEY = "p11BZP"
-    # PRODUCT_SECRET = "Z1ZJc3luOEFHTTJF"
-    # ACCESS_SECRET = "3eaba7d62d8c44a6a15c373ce7c5755d"
+    AIGC_API_URL = "https://uat-one-api.iotomp.com/v2/aibiz/openapi/v1/chatgpt/createSession"
+    AIGC_API_URL = "https://uat-one-api.iotomp.com/v2/aibiz/openapi/v1/chatgpt/production/test/createSession"
+    PRODUCT_KEY = "p11BZP"
+    PRODUCT_SECRET = "Z1ZJc3luOEFHTTJF"
+    ACCESS_SECRET = "3eaba7d62d8c44a6a15c373ce7c5755d"
 
     @classmethod
     def get_version(cls):

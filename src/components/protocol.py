@@ -1,7 +1,6 @@
 import utime
 import ujson
 import base64
-import urandom
 import request
 import ubinascii
 import uhashlib
@@ -118,18 +117,10 @@ class OpenAIRealTimeConnection(object):
 
     def get_realtime_api_info(self):
         """通过移远云接口获取 realtime 连接 url 和 token"""
-        # url = getattr(self, "__url__", None)
-        # token = getattr(self, "__token__", None)
-        # expire = getattr(self, "__expire__", 0)
-        # if all([url, token, expire]) and expire // 1000 > DateTime.now().timestamp:
-        #     return url, token, expire
         data = get_openai_realtime_token()
         url = data["url"] + data["path"]
         token = data["ephemeralToken"]
         expire = data["expireAt"]
-        # setattr(self, "__url__", url)
-        # setattr(self, "__token__", token)
-        # setattr(self, "__expire__", expire)
         return url, token, expire
 
     def connect(self):
@@ -155,7 +146,7 @@ class OpenAIRealTimeConnection(object):
     def __recv_thread_worker(self):
         while True:
             try:
-                raw = self.conn.recv(1024*10)
+                raw = self.conn.recv(1024*32)
             except Exception as e:
                 logger.info("{} recv thread break, Exception details: {}".format(self, repr(e)))
                 break
@@ -167,76 +158,128 @@ class OpenAIRealTimeConnection(object):
             except Exception as e:
                 print("handle event error: {}".format(repr(e)))
 
+    def emit(self, payload):
+        """发布客户端event"""
+        return self.conn.send(ujson.dumps(payload))
+
+    def session_update(self, payload):
+        return self.emit(payload)
+    
     def input_audio_buffer_append(self, buffer):
-        # logger.debug("input_audio_buffer_append {} length audio data".format(len(buffer)))
-        return self.conn.send(
-            ujson.dumps(
-                {
-                    "audio": base64.b64encode(buffer),
-                    "event_id": "event_{}".format(urandom.randint(0, 10000)),
-                    "type": "input_audio_buffer.append"
-                }
-            )
+        return self.emit(
+            {
+                "audio": base64.b64encode(buffer),
+                "event_id": "event_{}".format(self.__event_id_generator.get()),
+                "type": "input_audio_buffer.append"
+            }
         )
     
     def input_audio_buffer_commit(self):
-        logger.debug("input_audio_buffer_commit")
-        return self.conn.send(
-            ujson.dumps(
-                {
-                    "event_id": "event_{}".format(urandom.randint(0, 10000)),
-                    "type": "input_audio_buffer.commit"
-                }
-
-            )
+        return self.emit(
+            {
+                "event_id": "event_{}".format(self.__event_id_generator.get()),
+                "type": "input_audio_buffer.commit"
+            }
         )
     
-    def conversation_item_truncate(self, item_id):
-        logger.debug("conversation_item_truncate: {}".format(item_id))
-        return self.conn.send(
-            ujson.dumps(
-                {
-                    "event_id": "event_{}".format(urandom.randint(0, 10000)),
-                    "type": "conversation.item.truncate",
-                    "item_id": item_id,
-                    "content_index": 0,
-                    "audio_end_ms": 0
-                }
-            )
+    def input_audio_buffer_clear(self):
+        return self.emit(
+            {
+                "event_id": "event_{}".format(self.__event_id_generator.get()),
+                "type": "input_audio_buffer.clear"
+            }
+        )
+    
+    def conversation_item_create(self):
+        return self.emit(
+            {
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [
+                    {
+                        "type": "input_text",
+                        "text": "hi"
+                    }
+                    ]
+                },
+                "event_id": "event_{}".format(self.__event_id_generator.get()),
+            }
+        )
+    
+    def conversation_item_retrieve(self):
+        return self.emit(
+            {
+                "event_id": "event_{}".format(self.__event_id_generator.get()),
+                "type": "conversation.item.retrieve",
+                "item_id": "item_003"
+            }
         )
 
-    def response_cancel(self):
-        logger.debug("response_cancel")
-        return self.conn.send(
-            ujson.dumps(
-                {
-                    "event_id": "event_{}".format(self.__event_id_generator.get()),
-                    "type": "response.cancel"
-                }
-            )
+    def conversation_item_truncate(self, item_id):
+        return self.emit(
+            {
+                "event_id": "event_{}".format(self.__event_id_generator.get()),
+                "type": "conversation.item.truncate",
+                "item_id": item_id,
+                "content_index": 0,
+                "audio_end_ms": 0
+            }
+        )
+    
+    def conversation_item_delete(self):
+        return self.emit(
+            {
+                "event_id": "event_901",
+                "type": "conversation.item.delete",
+                "item_id": "item_003"
+            }
         )
 
     def response_create(self):
-        logger.debug("response_create")
-        return self.conn.send(
-            ujson.dumps(
-                {
-                    "event_id": "event_{}".format(self.__event_id_generator.get()),
-                    "type": "response.create",
-                    "response": {
-                        "output_modalities": [ "audio" ]
-                    }
+        return self.emit(
+            {
+                "event_id": "event_{}".format(self.__event_id_generator.get()),
+                "type": "response.create",
+                "response": {
+                    "output_modalities": [ "audio" ]
                 }
-            )
+            }
         )
 
-    def input_audio_buffer_clear(self):
-        logger.debug("input_audio_buffer_clear")
-        return self.conn.send(
-            ujson.dumps(
-                {
-                    "event_id": "event_{}".format(self.__event_id_generator.get()),
-                    "type": "input_audio_buffer.clear"
+    def response_cancel(self):
+        return self.emit(
+            {
+                "event_id": "event_{}".format(self.__event_id_generator.get()),
+                "type": "response.cancel"
+            }
+        )
+
+    def transcription_session_update(self):
+        return self.emit(
+            {
+                "type": "transcription_session.update",
+                "session": {
+                    "input_audio_format": "pcm16",
+                    "input_audio_transcription": {
+                        "model": "gpt-4o-transcribe",
+                        "prompt": "",
+                        "language": ""
+                    },
+                    "turn_detection": {
+                        "type": "server_vad",
+                        "threshold": 0.5,
+                        "prefix_padding_ms": 300,
+                        "silence_duration_ms": 500,
+                        "create_response": True,
+                    },
+                    "input_audio_noise_reduction": {
+                        "type": "near_field"
+                    },
+                    "include": [
+                        "item.input_audio_transcription.logprobs",
+                    ]
                 }
-            )
+            }
         )
