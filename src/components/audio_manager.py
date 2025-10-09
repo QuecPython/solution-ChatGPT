@@ -80,8 +80,7 @@ class AudioManager(object):
                 self.pcm = None
             self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.READONLY, audio.Audio.PCM.BLOCK, 25)
             self.g711 = G711(self.pcm)
-            self.g711.set_callback_v3(self.g711_cb)
-            self.g711.start_record_v3(0, RECORD_TIME_MS)
+            self.g711.start_auto_decoder(0, RECORD_TIME_MS, self.g711_cb)
 
     def __after_stop(self):
         with self.lock:
@@ -94,20 +93,18 @@ class AudioManager(object):
                 self.pcm = None
             self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.WRITEREAD, audio.Audio.PCM.BLOCK, 25)
             self.g711 = G711(self.pcm)
-            self.g711.set_callback_v3(self.g711_cb)
-            self.g711.start_record_v3(0, RECORD_TIME_MS)
+            self.g711.start_auto_decoder(0, RECORD_TIME_MS, self.g711_cb)
 
     def init_g711(self):
         with self.lock:
             self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.WRITEREAD, audio.Audio.PCM.BLOCK, 25)
             self.g711 = G711(self.pcm)
-            self.g711.set_callback_v3(self.g711_cb)
-            self.g711.start_record_v3(0, RECORD_TIME_MS)
+            self.g711.start_auto_decoder(0, RECORD_TIME_MS, self.g711_cb)
     
     def deinit_g711(self):
         with self.lock:
             if self.g711 is not None:
-                self.g711.stop_record_v3()
+                self.g711.stop_decoder()
                 del self.g711
                 self.g711 = None
             if self.pcm is not None:
@@ -118,7 +115,7 @@ class AudioManager(object):
     def g711_cb(self, args):
         if(args[1] == 1):
             buf = bytearray(args[0])
-            self.g711_read_v3(buf, args[0])
+            self.g711_read_buff(buf, args[0])
             if len(buf) > 0:
                 try:
                     CurrentApp().ai_manager.protocol.input_audio_buffer_append(buf)
@@ -126,8 +123,8 @@ class AudioManager(object):
                     # logger.debug("g711_cb got: {}".format(repr(e)))
                     pass
 
-    def g711_read_v3(self, buf, length):
-        return self.g711.read_v3(buf, length)
+    def g711_read_buff(self, buf, length):
+        return self.g711.read_buff(buf, length)
     
     def g711_read(self):
         with self.lock:
