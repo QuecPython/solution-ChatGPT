@@ -27,3 +27,12 @@ class LedManager(object):
 
     def disable_led(self):
         return self.led_power_pin.write(0)
+
+    def disable_all(self):
+        self.wifi_red_led.off()
+        self.wifi_green_led.off()  # WIFI 指示灯
+        self.power_red_led.off()
+        self.power_green_led.off()  # 电量指示灯
+        self.lte_red_led.off()
+        self.lte_green_led.off()  # LTE 网络指示灯
+        self.disable_led()

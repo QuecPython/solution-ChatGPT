@@ -4,7 +4,7 @@ import audio
 import G711
 from machine import ExtInt
 from usr.libs import CurrentApp
-from usr.libs.threading import Thread, Lock
+from usr.libs.threading import Thread, Lock, Event
 from usr.libs.logging import getLogger
 from usr.configure import settings
 
@@ -150,7 +150,7 @@ class AudioManager(object):
         self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 16000, audio.Audio.PCM.READONLY, audio.Audio.PCM.BLOCK, 25)
         value = settings.get("WAKEUP_KEYWORD")
         self.rec.ovkws_start(value, 0.8)
-        logger.debug("唤醒词：{}".format(value))
+        logger.debug("wakeup keywords: {}".format(value))
         self.__kws_stop_flag = False
         self.__kws_thread = Thread(self.__kws_thread_handler)
         self.__kws_thread.start(stack_size=16)

@@ -201,10 +201,11 @@ class EventSet(object):
     def wait_any(self, event_set, timeout=None, clear=False):
         with self.__cond:
             result = self.__cond.wait_for(lambda: event_set & self.__set, timeout=timeout)
+            rv = self.__set
             if result and clear:
                 self.__set &= ~event_set
-            return result
-    
+            return rv if result else -1
+
     def set(self, event_set):
         with self.__cond:
             self.__set |= event_set

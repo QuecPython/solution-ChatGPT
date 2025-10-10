@@ -3,7 +3,8 @@ import utime
 import base64
 from machine import ExtInt
 from usr.libs import CurrentApp
-from usr.libs.threading import EventSet, Thread
+from usr.libs.lpm import auto_sleep
+from usr.libs.threading import EventSet, Thread, Lock
 from usr.libs.logging import getLogger
 from .protocol import OpenAIRealTimeConnection
 
@@ -26,6 +27,9 @@ class AIManager(object):
         self.wakeup_key = ExtInt(ExtInt.GPIO41, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.on_wakeup_key_click, 250)
 
         self.event_set = EventSet()
+
+        self.lock = Lock()
+        self.count = 0
     
     def init(self):
         self.wakeup_key.enable()  # 使能唤醒按键
@@ -39,7 +43,9 @@ class AIManager(object):
     def chat_process(self):
         logger.debug("chat_process thread enter")
         try:
+            auto_sleep(False)
             CurrentApp().led_manager.power_green_led.blink(50, 50)
+            CurrentApp().power_manager.stop_check_lpm()
             CurrentApp().audio_manager.stop_kws()
             CurrentApp().audio_manager.init_g711()
             with self.protocol:
@@ -48,6 +54,7 @@ class AIManager(object):
                     return
                 logger.debug("protocol connect successed")
                 CurrentApp().led_manager.power_green_led.on()
+                CurrentApp().power_manager.start_check_standby()
                 while True:
                     if not self.protocol.is_state_ok():
                         break
@@ -56,9 +63,12 @@ class AIManager(object):
             logger.debug("chat process got {}".format(repr(e)))
         finally:
             logger.debug("chat process thread break out")
+            CurrentApp().power_manager.stop_check_standby()
             CurrentApp().audio_manager.deinit_g711()
             CurrentApp().audio_manager.start_kws()
             CurrentApp().led_manager.power_green_led.blink(250, 250)
+            CurrentApp().power_manager.start_check_lpm()
+            auto_sleep(True)
         logger.debug("chat_process thread exit")
 
     def on_openai_event(self, event):
@@ -121,10 +131,12 @@ class AIManager(object):
         logger.debug("input_audio_buffer_speech_started: \n{}".format(event))
         CurrentApp().led_manager.wifi_green_led.on()
         CurrentApp().audio_manager.stop_music()
+        CurrentApp().power_manager.reset_standby_check()
 
     def input_audio_buffer_speech_stopped(self, event):
         logger.debug("input_audio_buffer_speech_stopped: \n{}".format(event))
         CurrentApp().led_manager.wifi_green_led.off()
+        CurrentApp().power_manager.reset_standby_check()
 
     def input_audio_buffer_speech_committed(self, event):
         logger.debug("input_audio_buffer_speech_committed: \n{}".format(event))
@@ -217,6 +229,7 @@ class AIManager(object):
     def response_audio_delta(self, event):
         data = base64.b64decode(event["delta"])
         CurrentApp().audio_manager.g711_write(data)
+        CurrentApp().power_manager.reset_standby_check()
 
     def response_audio_done(self, event):
         logger.debug("response_audio_done: \n{}".format(event))
