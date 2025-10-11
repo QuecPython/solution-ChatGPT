@@ -4,7 +4,7 @@ import base64
 from machine import ExtInt
 from usr.libs import CurrentApp
 from usr.libs.lpm import auto_sleep
-from usr.libs.threading import EventSet, Thread, Lock
+from usr.libs.threading import EventSet, Thread
 from usr.libs.logging import getLogger
 from .protocol import OpenAIRealTimeConnection
 
@@ -27,9 +27,6 @@ class AIManager(object):
         self.wakeup_key = ExtInt(ExtInt.GPIO41, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.on_wakeup_key_click, 250)
 
         self.event_set = EventSet()
-
-        self.lock = Lock()
-        self.count = 0
     
     def init(self):
         self.wakeup_key.enable()  # 使能唤醒按键

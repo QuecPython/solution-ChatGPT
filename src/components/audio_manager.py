@@ -4,7 +4,7 @@ import audio
 import G711
 from machine import ExtInt
 from usr.libs import CurrentApp
-from usr.libs.threading import Thread, Lock, Event
+from usr.libs.threading import Thread, Lock
 from usr.libs.logging import getLogger
 from usr.configure import settings
 
@@ -137,36 +137,38 @@ class AudioManager(object):
     def stop_kws(self):
         logger.debug("stop kws...")
         self.rec.ovkws_stop()
-        self.__kws_stop_flag = True
-        if self.__kws_thread:
-            self.__kws_thread.join()
-        if self.pcm:
-            self.pcm.close()
-            del self.pcm
-            self.pcm = None
+        self.rec.stream_stop()
+        # self.__kws_stop_flag = True
+        # if self.__kws_thread:
+        #     self.__kws_thread.join()
+        # if self.pcm:
+        #     self.pcm.close()
+        #     del self.pcm
+        #     self.pcm = None
 
     def start_kws(self):
         logger.debug("start kws...")
-        self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 16000, audio.Audio.PCM.READONLY, audio.Audio.PCM.BLOCK, 25)
+        # self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 16000, audio.Audio.PCM.READONLY, audio.Audio.PCM.BLOCK, 25)
         value = settings.get("WAKEUP_KEYWORD")
-        self.rec.ovkws_start(value, 0.8)
         logger.debug("wakeup keywords: {}".format(value))
-        self.__kws_stop_flag = False
-        self.__kws_thread = Thread(self.__kws_thread_handler)
-        self.__kws_thread.start(stack_size=16)
+        self.rec.stream_start(2, 16000, 0)
+        self.rec.ovkws_start(value, 0.7)
+        # self.__kws_stop_flag = False
+        # self.__kws_thread = Thread(self.__kws_thread_handler)
+        # self.__kws_thread.start(stack_size=16)
 
-    def __kws_thread_handler(self):
-        logger.debug("__kws_thread_handler enter")
-        while True:
-            if self.__kws_stop_flag:
-                break
-            self.pcm.read(1024)
-            utime.sleep_ms(10)
-        logger.debug("__kws_thread_handler exit")
+    # def __kws_thread_handler(self):
+    #     logger.debug("__kws_thread_handler enter")
+    #     while True:
+    #         if self.__kws_stop_flag:
+    #             break
+    #         self.pcm.read(1024)
+    #         utime.sleep_ms(10)
+    #     logger.debug("__kws_thread_handler exit")
     
     def kws_cb(self, state):
         logger.info("on_keyword_spotting: {}".format(state))
-        if state[0] == 0 and state[1] == 1:
+        if state[0] == 1 and state[1] == 0:
             # 唤醒词触发
             CurrentApp().ai_manager.on_wakeup_key_click(None)
         else:
