@@ -59,12 +59,14 @@ class AIManager(object):
             CurrentApp().led_manager.power_green_led.blink(50, 50)
             CurrentApp().power_manager.stop_check_lpm()
             CurrentApp().audio_manager.stop_kws()
+            CurrentApp().audio_manager.set_upload_flag(False)
             CurrentApp().audio_manager.init_g711()
             with self.protocol:
                 if not self.event_set.wait(SESSION_CREATED_EVENT, timeout=10, clear=True):
                     logger.debug("protocol connect failed, get no SESSION_CREATED_EVENT after 10 seconds.")
                     return
                 logger.debug("protocol connect successed")
+                CurrentApp().audio_manager.set_upload_flag(True)
                 CurrentApp().led_manager.power_green_led.on()
                 CurrentApp().power_manager.start_check_standby()
                 while True:
@@ -76,6 +78,7 @@ class AIManager(object):
         finally:
             logger.debug("chat process thread break out")
             CurrentApp().power_manager.stop_check_standby()
+            CurrentApp().audio_manager.set_upload_flag(False)
             CurrentApp().audio_manager.deinit_g711()
             CurrentApp().audio_manager.start_kws()
             CurrentApp().led_manager.power_green_led.blink(250, 250)

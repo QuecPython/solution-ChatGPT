@@ -45,14 +45,14 @@ def get_openai_realtime_token():
                 "deviceKey": settings.DEVICE_KEY,
                 "timestamp": timestamp,
                 "sign": sign,
-                "inputAudioNoiseReduction": "near_field",  # far_field
+                "inputAudioNoiseReduction": "far_field",
                 # "turnDetection": None,
                 "turnDetection": {
                     "createResponse": True,
                     "interruptResponse": True,
                     "prefixPaddingMs": 300,
                     "silenceDurationMs": 500,
-                    "threshold": 0.8,
+                    "threshold": 0.7,
                     "type": "server_vad"
                 }
             }
@@ -153,6 +153,8 @@ class OpenAIRealTimeConnection(object):
             if raw is None or raw == "":
                 logger.info("{} recv thread break, Exception details: read none bytes, websocket disconnect".format(self))
                 break
+            if len(raw) > 1024*4:
+                continue
             try:
                 self.__event_cb(ujson.loads(raw))
             except Exception as e:

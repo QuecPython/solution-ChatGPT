@@ -36,6 +36,7 @@ class AudioManager(object):
         self.__stop_flag = False
         self.t = None
         self.lock = Lock()
+        self.should_upload_data = False
     
     def init(self):
         logger.info("init {} extension".format(type(self).__name__))
@@ -112,7 +113,12 @@ class AudioManager(object):
                 del self.pcm
                 self.pcm = None
     
+    def set_upload_flag(self, flag=True):
+        self.should_upload_data = flag
+
     def g711_cb(self, args):
+        if not self.should_upload_data:
+            return
         if(args[1] == 1):
             buf = bytearray(args[0])
             self.g711_read_buff(buf, args[0])
