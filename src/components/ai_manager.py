@@ -27,6 +27,9 @@ class AIManager(object):
         self.wakeup_key = ExtInt(ExtInt.GPIO41, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.on_wakeup_key_click, 250)
 
         self.event_set = EventSet()
+
+        self.conversation_item_id = None  # 记录对话的id
+        self.interrupt_flag = False
     
     def init(self):
         self.wakeup_key.enable()  # 使能唤醒按键
@@ -36,6 +39,18 @@ class AIManager(object):
         if self.chat_thread is None or not self.chat_thread.is_running():
             self.chat_thread = Thread(target=self.chat_process)
             self.chat_thread.start(stack_size=64)
+        else:
+            self.__cancel_response()
+
+    def __cancel_response(self):
+        if self.conversation_item_id is not None:
+            try:
+                self.protocol.response_cancel()
+                self.protocol.conversation_item_truncate(self.conversation_item_id)
+            except:
+                pass
+            self.conversation_item_id = None
+            self.__intr_flag = True
 
     def chat_process(self):
         logger.debug("chat_process thread enter")
@@ -96,6 +111,7 @@ class AIManager(object):
 
     def conversation_item_created(self, event):
         logger.debug("conversation_item_created: \n{}".format(event))
+        self.conversation_item_id = event["item"]["id"]
 
     def conversation_item_retrieved(self, event):
         logger.debug("conversation_item_retrieved: \n{}".format(event))
@@ -114,6 +130,7 @@ class AIManager(object):
 
     def conversation_item_truncated(self, event):
         logger.debug("conversation_item_truncated: \n{}".format(event))
+        self.interrupt_flag = False
     
     def conversation_item_deleted(self, event):
         logger.debug("conversation_item_deleted: \n{}".format(event))
@@ -224,6 +241,8 @@ class AIManager(object):
         logger.debug("response_audio_transcript_done: \n{}".format(event))
     
     def response_audio_delta(self, event):
+        if self.interrupt_flag:
+            return
         data = base64.b64decode(event["delta"])
         CurrentApp().audio_manager.g711_write(data)
         CurrentApp().power_manager.reset_standby_check()
