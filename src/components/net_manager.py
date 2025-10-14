@@ -13,6 +13,9 @@ logger = getLogger(__name__)
 
 class NetManager(object):
 
+    def __init__(self):
+        self.callback_handlers = {}
+
     def init(self):
         logger.info("init NetManager extension")
         self.active_sim_hot_swap()
