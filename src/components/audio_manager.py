@@ -22,6 +22,7 @@ class AudioManager(object):
         self.g711 = None
         self.aud = audio.Audio(0)  # 初始化音频播放通道
         self.aud.set_pa(29)
+        self.aud.set_open_pa_delay(10)
         self.aud.setVolume(9)  # 设置音量
         self.rec = audio.Record(0)
         self.rec.ovkws_set_callback(self.kws_cb)
