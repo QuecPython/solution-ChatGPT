@@ -74,8 +74,6 @@ QuecPython 推出了ChatGPT AI 聊天机器人解决方案。该方案基于 web
 
    ![](./media/start.png)
 
-   ![](./media/chat.png)
-
    
 
 ## 贡献

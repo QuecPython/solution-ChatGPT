@@ -80,7 +80,6 @@ Before you begin, ensure you have the following prerequisites:
 
    ![](./media/start.png)
 
-   ![](./media/chat.png)
 
 ## Contributing
 
