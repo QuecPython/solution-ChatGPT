@@ -30,17 +30,16 @@ class AIManager(object):
 
         self.conversation_item_id = None  # 记录对话的id
         self.interrupt_flag = False
+        self.stop_chat_flag = False
     
     def init(self):
         self.wakeup_key.enable()  # 使能唤醒按键
         self.on_wakeup_key_click(None)
 
     def on_wakeup_key_click(self, args):
-        if self.chat_thread is None or not self.chat_thread.is_running():
-            self.chat_thread = Thread(target=self.chat_process)
-            self.chat_thread.start(stack_size=64)
-        else:
-            self.__cancel_response()
+        self.start_chat()
+        CurrentApp().audio_manager.stop_music()
+        self.__cancel_response()
 
     def __cancel_response(self):
         if self.conversation_item_id is not None:
@@ -50,14 +49,25 @@ class AIManager(object):
             except:
                 pass
             self.conversation_item_id = None
-            self.__intr_flag = True
+            self.interrupt_flag = True
+
+    def start_chat(self):
+        self.stop_chat_flag = False
+        if self.chat_thread is None or not self.chat_thread.is_running():
+            self.chat_thread = Thread(target=self.chat_process)
+            self.chat_thread.start(stack_size=64)
+
+    def stop_chat(self):
+        self.stop_chat_flag = True
+        if self.chat_thread and self.chat_thread.is_running():
+            self.chat_thread.join()
 
     def chat_process(self):
         logger.debug("chat_process thread enter")
         try:
             auto_sleep(False)
             CurrentApp().led_manager.power_green_led.blink(50, 50)
-            CurrentApp().power_manager.stop_check_lpm()
+            # CurrentApp().power_manager.stop_check_lpm()
             CurrentApp().audio_manager.stop_kws()
             CurrentApp().audio_manager.set_upload_flag(False)
             CurrentApp().audio_manager.init_g711()
@@ -68,21 +78,23 @@ class AIManager(object):
                 logger.debug("protocol connect successed")
                 CurrentApp().audio_manager.set_upload_flag(True)
                 CurrentApp().led_manager.power_green_led.on()
-                CurrentApp().power_manager.start_check_standby()
-                while True:
-                    if not self.protocol.is_state_ok():
-                        break
-                    utime.sleep(1)
+                # CurrentApp().power_manager.start_check_standby()
+                while not self.stop_chat_flag:
+                    # if not self.protocol.is_state_ok():
+                    #     break
+                    # utime.sleep(1)
+                    buf = CurrentApp().audio_manager.g711_read()
+                    CurrentApp().ai_manager.protocol.input_audio_buffer_append(buf)
         except Exception as e:
             logger.debug("chat process got {}".format(repr(e)))
         finally:
             logger.debug("chat process thread break out")
-            CurrentApp().power_manager.stop_check_standby()
+            # CurrentApp().power_manager.stop_check_standby()
             CurrentApp().audio_manager.set_upload_flag(False)
             CurrentApp().audio_manager.deinit_g711()
             CurrentApp().audio_manager.start_kws()
             CurrentApp().led_manager.power_green_led.blink(250, 250)
-            CurrentApp().power_manager.start_check_lpm()
+            # CurrentApp().power_manager.start_check_lpm()
             auto_sleep(True)
         logger.debug("chat_process thread exit")
 
@@ -244,7 +256,7 @@ class AIManager(object):
         logger.debug("response_audio_transcript_done: \n{}".format(event))
     
     def response_audio_delta(self, event):
-        if self.interrupt_flag:
+        if self.interrupt_flag or CurrentApp().audio_manager.is_playing():
             return
         data = base64.b64decode(event["delta"])
         CurrentApp().audio_manager.g711_write(data)

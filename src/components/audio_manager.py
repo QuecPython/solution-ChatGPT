@@ -12,7 +12,7 @@ from usr.configure import settings
 logger = getLogger(__name__)
 
 
-RECORD_TIME_MS = 100
+RECORD_TIME_MS = 200
 
 
 class AudioManager(object):
@@ -22,8 +22,8 @@ class AudioManager(object):
         self.g711 = None
         self.aud = audio.Audio(0)  # 初始化音频播放通道
         self.aud.set_pa(29)
-        self.aud.set_open_pa_delay(10)
-        self.aud.setVolume(9)  # 设置音量
+        # self.aud.set_open_pa_delay(10)
+        self.aud.setVolume(4)  # 设置音量
         self.rec = audio.Record(0)
         self.rec.ovkws_set_callback(self.kws_cb)
         self.__kws_thread = None
@@ -57,6 +57,7 @@ class AudioManager(object):
                     break
                 # logger.debug("play audio data length: {}".format(len(data)))
                 self.aud.playStream(3, data.encode())
+                CurrentApp().power_manager.reset_standby_check()
             self.aud.stopPlayStream()
             logger.debug("play audio data stop")
             self.__after_stop()
@@ -74,6 +75,8 @@ class AudioManager(object):
     def __before_start(self):
         with self.lock:
             if self.g711 is not None:
+                # self.g711.stop_record_v3()
+                # self.g711.stop_decoder()
                 del self.g711
                 self.g711 = None
             if self.pcm is not None:
@@ -82,11 +85,15 @@ class AudioManager(object):
                 self.pcm = None
             self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.READONLY, audio.Audio.PCM.BLOCK, 25)
             self.g711 = G711(self.pcm)
-            self.g711.start_auto_decoder(0, RECORD_TIME_MS, self.g711_cb)
+            # self.g711.set_callback_v3(self.g711_cb)
+            # self.g711.start_record_v3(0, RECORD_TIME_MS)
+            # self.g711.start_auto_decoder(0, RECORD_TIME_MS, self.g711_cb)
 
     def __after_stop(self):
         with self.lock:
             if self.g711 is not None:
+                # self.g711.stop_record_v3()
+                # self.g711.stop_decoder()
                 del self.g711
                 self.g711 = None
             if self.pcm is not None:
@@ -95,18 +102,23 @@ class AudioManager(object):
                 self.pcm = None
             self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.WRITEREAD, audio.Audio.PCM.BLOCK, 25)
             self.g711 = G711(self.pcm)
-            self.g711.start_auto_decoder(0, RECORD_TIME_MS, self.g711_cb)
+            # self.g711.set_callback_v3(self.g711_cb)
+            # self.g711.start_record_v3(0, RECORD_TIME_MS)
+            # self.g711.start_auto_decoder(0, RECORD_TIME_MS, self.g711_cb)
 
     def init_g711(self):
         with self.lock:
             self.pcm = audio.Audio.PCM(0, audio.Audio.PCM.MONO, 8000, audio.Audio.PCM.WRITEREAD, audio.Audio.PCM.BLOCK, 25)
             self.g711 = G711(self.pcm)
-            self.g711.start_auto_decoder(0, RECORD_TIME_MS, self.g711_cb)
+            # self.g711.set_callback_v3(self.g711_cb)
+            # self.g711.start_record_v3(0, RECORD_TIME_MS)
+            # self.g711.start_auto_decoder(0, RECORD_TIME_MS, self.g711_cb)
     
     def deinit_g711(self):
         with self.lock:
             if self.g711 is not None:
-                self.g711.stop_decoder()
+                # self.g711.stop_record_v3()
+                # self.g711.stop_decoder()
                 del self.g711
                 self.g711 = None
             if self.pcm is not None:
@@ -126,12 +138,14 @@ class AudioManager(object):
             if len(buf) > 0:
                 try:
                     CurrentApp().ai_manager.protocol.input_audio_buffer_append(buf)
+                    # self.g711_write(buf)
                 except Exception as e:
                     # logger.debug("g711_cb got: {}".format(repr(e)))
                     pass
 
     def g711_read_buff(self, buf, length):
-        return self.g711.read_buff(buf, length)
+        return self.g711.read_v3(buf, length)
+        # return self.g711.read_buff(buf, length)
     
     def g711_read(self):
         with self.lock:

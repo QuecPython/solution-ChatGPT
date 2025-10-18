@@ -45,14 +45,14 @@ def get_openai_realtime_token():
                 "deviceKey": settings.DEVICE_KEY,
                 "timestamp": timestamp,
                 "sign": sign,
-                "inputAudioNoiseReduction": "far_field",
+                # "inputAudioNoiseReduction": "far_field",
                 # "turnDetection": None,
                 "turnDetection": {
                     "createResponse": True,
                     "interruptResponse": True,
-                    "prefixPaddingMs": 300,
+                    "prefixPaddingMs": 800,
                     "silenceDurationMs": 500,
-                    "threshold": 0.7,
+                    "threshold": 0.45,
                     "type": "server_vad"
                 }
             }

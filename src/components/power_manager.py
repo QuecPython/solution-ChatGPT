@@ -36,7 +36,7 @@ class PowerManager(object):
                 rv = self.standby_event_set.wait_any(0b11, timeout=60, clear=True)
                 if rv == -1:
                     logger.debug("no conversation detected after 60s, enter standby mode")
-                    CurrentApp().ai_manager.protocol.disconnect()
+                    CurrentApp().ai_manager.stop_chat()
                     break
                 if rv & 0b01:
                     logger.debug("exit standby mode detection")

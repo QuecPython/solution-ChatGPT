@@ -204,7 +204,7 @@ class EventSet(object):
             rv = self.__set
             if result and clear:
                 self.__set &= ~event_set
-            return rv if result else -1
+            return result, rv
 
     def set(self, event_set):
         with self.__cond:
