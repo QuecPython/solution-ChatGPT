@@ -17,7 +17,7 @@ class PowerManager(object):
         self.lpm_event_set = EventSet()
     
     def init(self):
-        logger.debug("init {} extension".format(type(self).__name__))
+        logger.info("init {} extension".format(type(self).__name__))
         self.enable_charge()
 
     def enable_charge(self):

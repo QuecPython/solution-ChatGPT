@@ -33,6 +33,7 @@ class AIManager(object):
         self.stop_chat_flag = False
     
     def init(self):
+        logger.info("init {} extension".format(type(self).__name__))
         self.wakeup_key.enable()  # 使能唤醒按键
         self.on_wakeup_key_click(None)
 
