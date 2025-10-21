@@ -162,6 +162,7 @@ class AIManager(object):
         CurrentApp().led_manager.wifi_green_led.on()
         CurrentApp().audio_manager.stop_music()
         CurrentApp().power_manager.reset_standby_check()
+        self.interrupt_flag = False
 
     def input_audio_buffer_speech_stopped(self, event):
         logger.debug("input_audio_buffer_speech_stopped: \n{}".format(event))
