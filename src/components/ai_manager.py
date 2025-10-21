@@ -86,6 +86,7 @@ class AIManager(object):
                     # utime.sleep(1)
                     buf = CurrentApp().audio_manager.g711_read()
                     CurrentApp().ai_manager.protocol.input_audio_buffer_append(buf)
+                    utime.sleep_ms(10)
         except Exception as e:
             logger.debug("chat process got {}".format(repr(e)))
         finally:
