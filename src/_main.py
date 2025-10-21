@@ -18,9 +18,12 @@ class SetUp(object):
 
     def init(self):
         logger.info("init {} extension".format(type(self).__name__))
+        self.sync_datetime()
+    
+    def sync_datetime(self):
         # 同步时间
-        import ntptime
-        result = ntptime.settime()
+        import ntptime, utime
+        result = ntptime.settime(timezone=utime.getTimeZone())
         logger.info("ntp set time result: {}".format(result))
 
 
