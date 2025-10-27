@@ -21,7 +21,7 @@ class AudioManager(object):
         self.pcm = None
         self.g711 = None
         self.aud = audio.Audio(0)  # 初始化音频播放通道
-        self.aud.set_pa(29)
+        # self.aud.set_pa(29)
         # self.aud.set_open_pa_delay(10)
         self.aud.setVolume(4)  # 设置音量
         self.rec = audio.Record(0)
@@ -29,8 +29,8 @@ class AudioManager(object):
         self.__kws_thread = None
         self.__kws_stop_flag = False
         # 音量按键
-        self.vol_plus = ExtInt(ExtInt.GPIO20, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.__set_audio_volume, 250)
-        self.vol_sub = ExtInt(ExtInt.GPIO47, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.__set_audio_volume, 250)
+        self.vol_plus = ExtInt(ExtInt.GPIO20, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.__set_audio_volume, 50)
+        self.vol_sub = ExtInt(ExtInt.GPIO47, ExtInt.IRQ_FALLING, ExtInt.PULL_PU, self.__set_audio_volume, 50)
         self.vol_plus.enable()
         self.vol_sub.enable()
         # 音乐播放
