@@ -49,7 +49,7 @@ class AudioManager(object):
         self.__stop_flag = False
         def inner(url):
             logger.debug("play audio data start")
-            self.__before_start()
+            # self.__before_start()
             resp = request.get(url)
             for data in resp.content:
                 if self.__stop_flag:
@@ -60,7 +60,7 @@ class AudioManager(object):
                 CurrentApp().power_manager.reset_standby_check()
             self.aud.stopPlayStream()
             logger.debug("play audio data stop")
-            self.__after_stop()
+            # self.__after_stop()
         self.t = Thread(target=inner, args=(url, ))
         self.t.start()
 
